@@ -7,6 +7,7 @@ let timeToNextRaven = 0;
 let ravenInterval = 500;
 let lastTime = 0;
 let score = 0;
+let gameOver = false;
 ctx.font = "50px Impact";
 
 let ravens = [];
@@ -58,6 +59,7 @@ class Raven {
       else this.frame++;
       this.timeSinceFlap = 0;
     }
+    if (this.x < 0 - this.width) gameOver = true;
   }
   draw() {
     ctx.drawImage(
@@ -72,15 +74,75 @@ class Raven {
       this.height
     );
     ctx.fillStyle = this.color;
-    ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.beginPath();
+    ctx.fillRect(this.x, this.y, this.width * 0.5, this.height * 0.5);
   }
 }
+
+let explosions = [];
+class Explosion {
+  constructor(x, y, size) {
+    this.image = new Image();
+    this.image.src = "dust_cloud.png";
+    this.spriteWidth = 200;
+    this.spriteHeight = 179;
+    this.size = size;
+    this.x = x;
+    this.y = y;
+    this.frame = 0;
+    this.sound = new Audio();
+    this.sound.src = "fart.mp3";
+    this.timeSinceLastFrame = 0;
+    this.frameInterval = 200;
+    this.markedForDeath = false;
+  }
+  update(deltatime) {
+    if (this.frame === 0) this.sound.play();
+    this.timeSinceLastFrame += deltatime;
+    if (this.timeSinceLastFrame > this.frameInterval) {
+      this.frame++;
+      this.timeSinceLastFrame = 0;
+      if (this.frame > 5) this.markedForDeath = true;
+    }
+  }
+  draw() {
+    ctx.drawImage(
+      this.image,
+      this.frame * this.spriteWidth,
+      0,
+      this.spriteWidth,
+      this.spriteHeight,
+      this.x,
+      this.y - this.size / 4,
+      this.size,
+      this.size
+    );
+  }
+}
+
+let particles = [];
 
 function drawScore() {
   ctx.fillStyle = "#00573F";
   ctx.fillText("Score: " + score, 53, 78);
   ctx.fillStyle = "mintcream";
   ctx.fillText("Score: " + score, 50, 75);
+}
+
+function drawGameOver() {
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#00573F";
+  ctx.fillText(
+    "YOU SUCK!!! Score " + score,
+    canvas.width * 0.5 + 2,
+    canvas.height * 0.5 + 2
+  );
+  ctx.fillStyle = "mintcream";
+  ctx.fillText(
+    "YOU SUCK!!! Score " + score,
+    canvas.width * 0.5,
+    canvas.height * 0.5
+  );
 }
 
 window.addEventListener("click", function (e) {
@@ -93,8 +155,11 @@ window.addEventListener("click", function (e) {
       boobie.randomColors[1] === pc[1] &&
       boobie.randomColors[2] === pc[2]
     ) {
+      // collision detected
       boobie.markedForDeath = true;
       score++;
+      explosions.push(new Explosion(boobie.x, boobie.y, boobie.width));
+      console.log(explosions);
     }
   });
 });
@@ -112,11 +177,13 @@ function animate(timestamp) {
     });
   }
   drawScore();
-  [...ravens].forEach((boobie) => boobie.update(deltatime));
-  [...ravens].forEach((boobie) => boobie.draw());
+  [...ravens, ...explosions].forEach((boobie) => boobie.update(deltatime));
+  [...ravens, ...explosions].forEach((boobie) => boobie.draw());
   ravens = ravens.filter((boobie) => !boobie.markedForDeath);
+  explosions = explosions.filter((boobie) => !boobie.markedForDeath);
 
-  requestAnimationFrame(animate);
+  if (!gameOver) requestAnimationFrame(animate);
+  else drawGameOver();
 }
 
 animate(0);
